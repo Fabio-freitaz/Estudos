@@ -1,69 +1,111 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-
-const mockMaterial = {
-  id: 'material-demo',
-  title: 'Biologia - Membranas',
-  summary: 'As membranas celulares são estruturas fundamentais para a proteção, transporte e comunicação entre o ambiente interno e externo da célula. Elas permitem o controle seletivo do que entra e sai, mantendo a homeostase e favorecendo processos vitais como a absorção e a eliminação de substâncias.',
-  topics: [
-    { title: 'Estrutura da membrana', explanation: 'A membrana é uma camada seletiva que delimita a célula e regula as trocas com o ambiente.', example: 'Exemplo didático: pense na membrana como uma porta seletiva que deixa entrar o que é necessário.' },
-    { title: 'Transporte celular', explanation: 'A célula movimenta substâncias por processos como difusão, osmose e transporte ativo.', example: 'Exemplo didático: quando se coloca sal em uma solução, a água se desloca para manter o equilíbrio.' },
-    { title: 'Comunicação celular', explanation: 'A membrana também participa da resposta da célula ao ambiente e da interação com outras células.', example: 'Exemplo didático: uma célula recebe sinais e responde de acordo com o que precisa.' },
-  ],
-  key_points: ['Membrana é seletivamente permeável', 'Proteínas desempenham funções diversas', 'Difusão e osmose são processos importantes'],
-  questions: [],
-};
+import { useAuth } from '../contexts/AuthContext';
 
 export default function MaterialDetailPage() {
   const { id } = useParams();
   const location = useLocation();
+  const { session } = useAuth();
   const [expandedTopic, setExpandedTopic] = useState(0);
-  const material = useMemo(() => {
-    const stateMaterial = location.state?.material || mockMaterial;
-    const normalizedTopics = (stateMaterial.topics || []).map((topic, index) => {
+  const [material, setMaterial] = useState(location.state?.material || null);
+  const [loading, setLoading] = useState(!location.state?.material);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchMaterial = async () => {
+      if (location.state?.material) {
+        setMaterial(location.state.material);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+
+      try {
+        const response = await fetch(`/api/materials/${id}`, {
+          headers: {
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result?.error || 'Material indisponível.');
+        }
+
+        setMaterial(result?.data || null);
+      } catch (fetchError) {
+        setError(fetchError?.message || 'Não foi possível carregar o material.');
+        setMaterial(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchMaterial();
+    }
+  }, [id, location.state?.material, session?.access_token]);
+
+  const normalizedMaterial = useMemo(() => {
+    if (!material) {
+      return null;
+    }
+
+    const normalizedTopics = (material.topics || []).map((topic, index) => {
       if (typeof topic === 'string') {
         return {
           title: topic,
           explanation: 'Resumo do tema principal do material.',
-          example: 'Exemplo didático: relacionada ao conteúdo do material para facilitar a memorização.',
+          example: 'Exemplo didático: relacionado ao conteúdo do material para facilitar a memorização.',
         };
       }
 
       return {
-        title: topic?.title || `Tema ${index + 1}`,
+        title: topic?.title || topic?.name || `Tema ${index + 1}`,
         explanation: topic?.explanation || '',
         example: topic?.example || '',
       };
     });
 
     return {
-      ...stateMaterial,
-      summary: stateMaterial.summary || 'Resumo do material não disponível.',
+      ...material,
+      summary: material.summary || 'Resumo do material não disponível.',
       topics: normalizedTopics,
-      key_points: stateMaterial.key_points || ['Principais pontos do conteúdo'],
+      key_points: material.key_points || ['Principais pontos do conteúdo'],
+      questions: material.questions || [],
     };
-  }, [location.state]);
+  }, [material]);
+
+  if (loading) {
+    return <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">Carregando material...</div>;
+  }
+
+  if (error || !normalizedMaterial) {
+    return <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-600">{error || 'Material não encontrado.'}</div>;
+  }
 
   return (
     <div className="space-y-8">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-indigo-600">Material</p>
-        <h1 className="mt-3 text-3xl font-black text-slate-900">{material.title}</h1>
+        <h1 className="mt-3 text-3xl font-black text-slate-900">{normalizedMaterial.title}</h1>
 
         <div className="mt-8 space-y-6">
           <section>
             <h2 className="text-xl font-bold text-slate-900">Resumo</h2>
-            <p className="mt-3 leading-7 text-slate-700">{material.summary}</p>
+            <p className="mt-3 leading-7 text-slate-700">{normalizedMaterial.summary}</p>
           </section>
 
           <section>
             <h3 className="text-lg font-bold text-slate-900">Principais assuntos</h3>
             <div className="mt-4 space-y-3">
-              {(material.topics || []).map((topic, index) => {
+              {(normalizedMaterial.topics || []).map((topic, index) => {
                 const isOpen = expandedTopic === index;
 
                 return (
-                  <div key={`${material.id}-topic-${index}`} className="overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50/40">
+                  <div key={`${normalizedMaterial.id}-topic-${index}`} className="overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50/40">
                     <button
                       type="button"
                       onClick={() => setExpandedTopic(isOpen ? -1 : index)}
@@ -91,8 +133,8 @@ export default function MaterialDetailPage() {
           <section>
             <h3 className="text-lg font-bold text-slate-900">Pontos importantes</h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-slate-700">
-              {(material.key_points || []).map((point, index) => (
-                <li key={`${material.id}-point-${index}`}>{point}</li>
+              {(normalizedMaterial.key_points || []).map((point, index) => (
+                <li key={`${normalizedMaterial.id}-point-${index}`}>{point}</li>
               ))}
             </ul>
           </section>
@@ -101,7 +143,7 @@ export default function MaterialDetailPage() {
         <div className="mt-8 flex justify-end">
           <Link
             to={`/materials/${id}/quiz`}
-            state={{ material, questions: material.questions || [] }}
+            state={{ material: normalizedMaterial, questions: normalizedMaterial.questions || [] }}
             className="rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white hover:bg-indigo-500"
           >
             Começar questões

@@ -128,11 +128,11 @@ export const analyzePdfWithGemini = async ({ text, title, questionCount, userTok
     });
 
     let result = null;
-    const text = await response.text();
+    const responseText = await response.text();
 
-    if (text) {
+    if (responseText) {
       try {
-        result = JSON.parse(text);
+        result = JSON.parse(responseText);
       } catch {
         throw new Error('Resposta inválida da análise do material.');
       }
@@ -156,8 +156,18 @@ export const analyzePdfWithGemini = async ({ text, title, questionCount, userTok
       ? error.message
       : 'A IA não está respondendo. Verifique a rota da API e as variáveis do Gemini/Supabase.';
 
-    throw new Error(message.includes('Failed to fetch') || message.includes('fetch')
-      ? 'A rota /api/analyze-pdf não está disponível no ambiente atual. Use o servidor Vercel local ou configure o backend antes de testar a IA.'
-      : message);
+    if (message.includes('Failed to fetch') || message.includes('fetch')) {
+      throw new Error('A API local não está respondendo em http://localhost:3001. Verifique se o backend está em execução.');
+    }
+
+    if (message.includes('GEMINI_API_KEY') || message.includes('Supabase')) {
+      throw new Error(message);
+    }
+
+    if (message.includes('Usuário não autenticado') || message.includes('401')) {
+      throw new Error('Autenticação necessária. Faça login com um usuário válido antes de analisar o PDF.');
+    }
+
+    throw new Error(message);
   }
 };

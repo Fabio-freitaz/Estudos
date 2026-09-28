@@ -1,9 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_PUBLISHABLE_KEY;
+const getEnvValue = (...names) => {
+  for (const name of names) {
+    const value = import.meta.env[name];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
 
-export const supabase = supabaseUrl && supabaseAnonKey
+  return '';
+};
+
+const isPlaceholderValue = (value) => typeof value === 'string' && /(^your-|placeholder|example|changeme|replace-me|replace me|insert)/i.test(value.trim());
+
+const supabaseUrl = getEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL');
+const supabaseAnonKey = getEnvValue(
+  'VITE_SUPABASE_ANON_KEY',
+  'VITE_SUPABASE_PUBLISHABLE_KEY',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_PUBLISHABLE_KEY',
+);
+
+export const supabase = supabaseUrl && supabaseAnonKey && !isPlaceholderValue(supabaseUrl) && !isPlaceholderValue(supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 

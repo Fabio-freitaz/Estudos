@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
-import { FileUp, Trash2, UploadCloud, X } from 'lucide-react';
+import { FileUp, Trash2, UploadCloud } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { appConfig } from '../config';
 import { extractTextFromPdf, validatePdfFile } from '../lib/pdf';
 import { analyzePdfWithGemini } from '../services/gemini';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,10 +55,14 @@ export default function MaterialUploadPage() {
         throw new Error('Não foi possível gerar o conteúdo do material.');
       }
 
-      const material = {
-        id: `material-${Date.now()}`,
+      const payload = {
         title: analysis.title || file.name.replace(/\.pdf$/i, ''),
         summary: analysis.summary,
+        extractedText: text,
+        fileName: file.name,
+        storagePath: 'local-upload',
+        pdfSize: file.size,
+        questionCount,
         topics: analysis.topics || [],
         key_points: analysis.key_points || [],
         questions: (analysis.questions || []).map((question, index) => ({
@@ -69,6 +72,21 @@ export default function MaterialUploadPage() {
         })),
       };
 
+      const response = await fetch('/api/materials', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const savedResult = await response.json();
+      if (!response.ok) {
+        throw new Error(savedResult?.error || 'Não foi possível salvar o material no banco.');
+      }
+
+      const material = savedResult?.data || payload;
       navigate(`/materials/${material.id}`, { state: { material } });
     } catch (uploadError) {
       const message = uploadError?.message || 'Não foi possível analisar seu material agora. Tente novamente.';

@@ -17,8 +17,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const bootstrap = async () => {
       if (!isSupabaseConfigured) {
-        setUser(demoUser);
-        setSession({ user: demoUser });
         setLoading(false);
         return;
       }
@@ -41,9 +39,10 @@ export function AuthProvider({ children }) {
 
   const signUp = async ({ email, password, fullName }) => {
     if (!isSupabaseConfigured) {
-      setUser({ ...demoUser, email, full_name: fullName || demoUser.full_name });
-      setSession({ user: { ...demoUser, email, full_name: fullName || demoUser.full_name } });
-      return { error: null };
+      return {
+        data: null,
+        error: { message: 'Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (ou VITE_SUPABASE_PUBLISHABLE_KEY) com valores reais.' },
+      };
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -64,9 +63,10 @@ export function AuthProvider({ children }) {
 
   const signIn = async ({ email, password }) => {
     if (!isSupabaseConfigured) {
-      setUser({ ...demoUser, email, full_name: demoUser.full_name });
-      setSession({ user: { ...demoUser, email, full_name: demoUser.full_name } });
-      return { error: null };
+      return {
+        data: null,
+        error: { message: 'Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (ou VITE_SUPABASE_PUBLISHABLE_KEY) com valores reais.' },
+      };
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
