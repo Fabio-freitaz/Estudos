@@ -19,6 +19,9 @@ body {
     sans-serif;
   background: #f8fafc;
   color: #0f172a;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 a {
